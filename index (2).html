@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Department Attendance Register</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="login-wrap" id="loginScreen">
+  <div class="login-card">
+    <div class="login-header">
+      <p class="eyebrow-login">Faculty / Admin Access</p>
+      <h1>Department Attendance Register</h1>
+      <p>Department of Computer Science &middot; National College</p>
+    </div>
+    <div class="login-body">
+      <div class="login-alert" id="loginAlert"></div>
+      <div id="loginForm">
+        <div class="login-field">
+          <label for="loginEmail">Faculty Email</label>
+          <input type="text" id="loginEmail" autocomplete="username" placeholder="faculty@college.edu">
+          <div class="field-msg" id="loginEmailMsg"></div>
+        </div>
+        <div class="login-field">
+          <label for="loginPassword">Password</label>
+          <div class="login-input-row">
+            <input type="password" id="loginPassword" autocomplete="current-password" placeholder="********" style="padding-right:64px;">
+            <button type="button" class="pw-toggle" id="pwToggle">Show</button>
+          </div>
+          <div class="field-msg" id="loginPasswordMsg"></div>
+        </div>
+        <div class="login-row-between">
+          <label class="remember-me"><input type="checkbox" id="rememberMe" checked> Remember me</label>
+          <button type="button" class="forgot-link" id="forgotPasswordBtn">Forgot password?</button>
+        </div>
+        <button type="button" class="login-btn" id="loginSubmitBtn">Login</button>
+      </div>
+      <p class="login-footnote">Authenticated access for department faculty and administrators only.</p>
+    </div>
+  </div>
+</div>
+
+<div class="shell" id="appShell" style="display:none;">
+  <header>
+    <p class="eyebrow">
+      <span>Attendance Register</span>
+      <span class="sync-badge" id="syncBadge">Cloud sync ready</span>
+    </p>
+    <h1>Department of Computer Science</h1>
+    <p class="college-line">National College</p>
+    <div class="header-user-row">
+      <span>Logged in as: <b id="loggedInUserName" style="color:var(--paper);">&mdash;</b></span>
+      <button class="logout-btn" id="logoutBtn">Logout</button>
+    </div>
+  </header>
+  <nav>
+    <button class="active" data-tab="dashboard">Dashboard</button>
+    <button data-tab="register">Take Attendance</button>
+    <button data-tab="students">Students</button>
+    <button data-tab="reports">Reports</button>
+  </nav>
+  <main>
+    <div id="diagnosticBanner" style="display:none;"></div>
+
+    <section id="tab-dashboard">
+      <div class="cards-grid">
+        <div class="stat-card"><div class="label">Total Students</div><div class="value" id="dashTotalStudents">0</div></div>
+        <div class="stat-card present"><div class="label">Present Today</div><div class="value" id="dashPresentToday">0</div></div>
+        <div class="stat-card absent"><div class="label">Absent Today</div><div class="value" id="dashAbsentToday">0</div></div>
+        <div class="stat-card warn"><div class="label">Overall Attendance</div><div class="value" id="dashOverallPct">&mdash;</div></div>
+      </div>
+
+      <div class="dash-grid">
+        <div class="chart-card">
+          <h3>Today's Attendance</h3>
+          <div class="chart-wrap"><canvas id="attendanceChart"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <h3>Per-Student Attendance %</h3>
+          <div id="dashStudentTableWrap" style="max-height:260px;overflow-y:auto;"></div>
+        </div>
+      </div>
+
+      <div class="shortage-section">
+        <div class="shortage-header">
+          <h3>&#9888; Attendance Shortage</h3>
+          <span class="shortage-count" id="shortageCount">0 students</span>
+        </div>
+        <div id="shortageListWrap"></div>
+      </div>
+    </section>
+
+    <section id="tab-register" style="display:none;">
+      <div class="toolbar">
+        <div class="field">
+          <label for="dateInput">Date</label>
+          <input type="date" id="dateInput">
+        </div>
+        <div class="field">
+          <label for="subjectInput">Subject / Course</label>
+          <input type="text" id="subjectInput" placeholder="e.g. Data Structures" value="Data Structures">
+        </div>
+        <button class="btn ghost" id="markAllPresent">Mark all present</button>
+        <button class="btn" id="saveAttendance">Save attendance to cloud</button>
+      </div>
+      <div id="registerTableWrap"></div>
+    </section>
+
+    <section id="tab-students" style="display:none;">
+      <div class="row-inline">
+        <div class="field"><label for="newRoll">Roll no.</label><input type="text" id="newRoll" placeholder="21CS045" style="width:120px;"></div>
+        <div class="field"><label for="newName">Student name</label><input type="text" id="newName" placeholder="Full name" style="width:200px;"></div>
+        <div class="field"><label for="newDept">Department</label><input type="text" id="newDept" placeholder="CSE" style="width:100px;"></div>
+        <div class="field"><label for="newYear">Year</label><input type="text" id="newYear" placeholder="3" style="width:60px;"></div>
+        <div class="field"><label for="newSection">Section</label><input type="text" id="newSection" placeholder="A" style="width:60px;"></div>
+        <button class="btn" id="addStudent">Add student</button>
+      </div>
+      <div id="studentsTableWrap"></div>
+    </section>
+
+    <section id="tab-reports" style="display:none;">
+      <div class="registry-note">Reports are computed from every attendance record stored in Firestore.</div>
+      <div class="toolbar">
+        <div class="field"><label for="reportStudentFilter">Student</label><select id="reportStudentFilter"><option value="">All students</option></select></div>
+        <div class="field"><label for="reportSubjectFilter">Subject</label><input type="text" id="reportSubjectFilter" placeholder="Any subject"></div>
+        <div class="field"><label for="reportDateFrom">From date</label><input type="date" id="reportDateFrom"></div>
+        <div class="field"><label for="reportDateTo">To date</label><input type="date" id="reportDateTo"></div>
+        <button class="btn ghost" id="reportApplyFilter">Apply filters</button>
+        <button class="btn ghost" id="reportClearFilter">Clear filters</button>
+        <button class="btn ghost" id="reportPrint">Print</button>
+        <button class="btn" id="reportDownloadCsv">Download CSV</button>
+      </div>
+      <div class="summary-bar" id="reportSummary" style="display:flex;gap:26px;margin-bottom:20px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--muted);"></div>
+      <div id="reportsTableWrap"></div>
+    </section>
+  </main>
+</div>
+
+<div class="loading-screen" id="loadingScreen" style="display:none;">Connecting to cloud database and loading your register&hellip;</div>
+
+<div class="modal-overlay" id="profileModal">
+  <div class="modal-card">
+    <div class="modal-header">
+      <div>
+        <h2 id="profileName">&mdash;</h2>
+        <p class="roll-line" id="profileRoll">&mdash;</p>
+      </div>
+      <button class="modal-close" id="profileClose">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="profile-meta" id="profileMeta"></div>
+      <div class="profile-stats" id="profileStats"></div>
+      <h3 style="font-family:'Source Serif 4',serif;font-size:15px;margin:0 0 10px;">Attendance History</h3>
+      <div id="profileHistoryWrap" style="max-height:280px;overflow-y:auto;"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/12.15.0/firebase-app-compat.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/12.15.0/firebase-auth-compat.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/12.15.0/firebase-firestore-compat.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.0/chart.umd.min.js"></script>
+<script src="script.js"></script>
+</body>
+</html>
