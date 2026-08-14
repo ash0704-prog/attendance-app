@@ -268,9 +268,25 @@ async function renderDashboard(){
   document.getElementById('dashTotalStudents').textContent = students.length;
 
   const today = todayStr();
-  const todaysRecords = allAttendance.filter(a => a.date === today);
-  const presentToday = todaysRecords.filter(r=>r.status==='P').length;
-  const absentToday = todaysRecords.filter(r=>r.status==='A').length;
+
+const todaysRecords = allAttendance.filter(a => a.date === today);
+
+const presentStudentIds = new Set(
+  todaysRecords
+    .filter(r => r.status === 'P')
+    .map(r => r.studentId)
+);
+
+const absentStudentIds = new Set(
+  todaysRecords
+    .filter(r => r.status === 'A')
+    .map(r => r.studentId)
+);
+
+presentStudentIds.forEach(id => absentStudentIds.delete(id));
+
+const presentToday = presentStudentIds.size;
+const absentToday = absentStudentIds.size;
   document.getElementById('dashPresentToday').textContent = presentToday;
   document.getElementById('dashAbsentToday').textContent = absentToday;
 
