@@ -289,7 +289,39 @@ const presentToday = presentStudentIds.size;
 const absentToday = absentStudentIds.size;
   document.getElementById('dashPresentToday').textContent = presentToday;
   document.getElementById('dashAbsentToday').textContent = absentToday;
+ 
+   // Today's absent students
+  const absentStudents = students.filter(s =>
+    absentStudentIds.has(s.rollNo)
+  );
 
+  document.getElementById('absentCount').textContent =
+    `${absentStudents.length} student${absentStudents.length === 1 ? '' : 's'}`;
+
+  const absentWrap = document.getElementById('absentStudentsListWrap');
+
+  if(absentStudents.length === 0){
+    absentWrap.innerHTML =
+      '<div class="empty">No absent students today.</div>';
+  }else{
+    absentWrap.innerHTML = absentStudents.map(s => `
+      <div class="shortage-card" data-roll="${s.rollNo}">
+        <div>
+          <div class="name">${s.name}</div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);">
+            Roll No: ${s.rollNo}
+          </div>
+        </div>
+        <div class="pct" style="color:var(--absent);">Absent</div>
+      </div>
+    `).join('');
+
+    absentWrap.querySelectorAll('.shortage-card').forEach(card => {
+      card.addEventListener('click', () =>
+        openStudentProfile(card.dataset.roll)
+      );
+    });
+       }
   const perStudent = students.map(s => ({ ...s, stats: computeStudentStats(s.rollNo) }));
   const withPct = perStudent.filter(s => s.stats.pct !== null);
   const overallPct = withPct.length ? Math.round(withPct.reduce((a,s)=>a+s.stats.pct,0)/withPct.length) : null;
