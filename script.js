@@ -494,8 +494,11 @@ document.getElementById('saveAttendance').addEventListener('click', async ()=>{
   const { date, subject } = activeKeyParts();
   try{
     await saveAttendanceBatch(date, subject, dirtyBucket);
-    allAttendance = await loadAllAttendance();
-    btn.textContent = 'Saved to cloud ✓';
+   allAttendance = await loadAllAttendance();
+
+renderDashboard();
+
+btn.textContent = 'Saved to cloud ✓';
     setSyncBadge('ok','Cloud sync ready');
   }catch(e){
     console.error('Save attendance failed', e);
