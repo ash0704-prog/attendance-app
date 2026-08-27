@@ -328,7 +328,10 @@ const absentToday = absentStudentIds.size;
   document.getElementById('dashOverallPct').textContent = overallPct===null ? '—' : overallPct + '%';
 
   // Doughnut chart: today's present vs absent
-  const ctx = document.getElementById('attendanceChart').getContext('2d');
+ const canvas = document.getElementById('attendanceChart');
+
+if (canvas && typeof Chart !== 'undefined') {
+    const ctx = canvas.getContext('2d');
   const chartData = {
     labels: ['Present', 'Absent'],
     datasets: [{ data: [presentToday, absentToday], backgroundColor: ['#3F7050', '#A63D40'], borderWidth: 0 }]
