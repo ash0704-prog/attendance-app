@@ -76,31 +76,27 @@
 
       <div class="dash-grid">
         <div class="chart-card">
-          <h3>Today's Attendance</h3>
+          <h3>Overall Attendance</h3>
           <div class="chart-wrap"><canvas id="attendanceChart"></canvas></div>
+          <div id="chartLegendSummary" style="margin-top:12px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ink);"></div>
         </div>
         <div class="chart-card">
-          <h3>Per-Student Attendance %</h3>
-          <div id="dashStudentTableWrap" style="max-height:260px;overflow-y:auto;"></div>
+          <h3>Student-wise Attendance Percentage</h3>
+          <div id="dashStudentTableWrap" style="max-height:300px;overflow-y:auto;"></div>
         </div>
       </div>
-<div class="absent-section">
-  <div class="absent-header">
-    <h3>Absent Students Today</h3>
-    <span class="absent-count" id="absentCount">0 students</span>
-  </div>
-  <div id="absentStudentsListWrap"></div>
-</div>
+
       <div class="absent-section">
-  <div class="shortage-header">
-    <h3>🔴 Absent Students Today</h3>
-    <span class="shortage-count" id="absentCount">0 students</span>
-  </div>
-  <div id="absentStudentsListWrap"></div>
+        <div class="absent-header" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <h3 style="font-family:'Source Serif 4',serif;font-size:17px;margin:0;color:var(--ink);">Today's Absent Students</h3>
+          <span class="absent-count" id="absentCount" style="font-family:'IBM Plex Mono',monospace;font-size:11px;background:var(--absent-bg);color:var(--absent);padding:3px 10px;border-radius:12px;">0 students</span>
+        </div>
+        <div id="absentStudentsListWrap"></div>
       </div>
-      <div class="shortage-section">
+
+      <div class="shortage-section" style="margin-top:24px;">
         <div class="shortage-header">
-          <h3>&#9888; Attendance Shortage</h3>
+          <h3>&#9888; Attendance Shortage (Below 75%)</h3>
           <span class="shortage-count" id="shortageCount">0 students</span>
         </div>
         <div id="shortageListWrap"></div>
