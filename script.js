@@ -262,130 +262,280 @@ function computeStudentStats(rollNo, filterFn){
 /* ============================================================
    DASHBOARD TAB
 ============================================================ */
+/* ============================================================
+   DASHBOARD TAB & CENTRALIZED REFRESH LOGIC
+============================================================ */
 let attendanceChartInstance = null;
+
+async function refreshDashboard(){
+  await renderDashboard();
+}
 
 async function renderDashboard(){
   document.getElementById('dashTotalStudents').textContent = students.length;
 
-  const today = todayStr();
+  const activeDate = (document.getElementById('dateInput') && document.getElementById('dateInput').value) 
+    ? document.getElementById('dateInput').value 
+    : todayStr();
 
-const todaysRecords = allAttendance.filter(a => a.date === today);
-
-const presentStudentIds = new Set(
-  todaysRecords
-    .filter(r => r.status === 'P')
-    .map(r => r.studentId)
-);
-
-const absentStudentIds = new Set(
-  todaysRecords
-    .filter(r => r.status === 'A')
-    .map(r => r.studentId)
-);
-
-presentStudentIds.forEach(id => absentStudentIds.delete(id));
-
-const presentToday = presentStudentIds.size;
-const absentToday = absentStudentIds.size;
-  document.getElementById('dashPresentToday').textContent = presentToday;
-  document.getElementById('dashAbsentToday').textContent = absentToday;
- 
-   // Today's absent students
-  const absentStudents = students.filter(s =>
-    absentStudentIds.has(s.rollNo)
-  );
-
-  document.getElementById('absentCount').textContent =
-    `${absentStudents.length} student${absentStudents.length === 1 ? '' : 's'}`;
-
+  // ------------------------------------------------------------
+  // SECTION 2: TODAY'S / SELECTED DATE'S ABSENT STUDENTS
+  // ------------------------------------------------------------
+  const dateRecords = allAttendance.filter(a => a.date === activeDate);
   const absentWrap = document.getElementById('absentStudentsListWrap');
+  const absentCountEl = document.getElementById('absentCount');
 
-  if(absentStudents.length === 0){
-    absentWrap.innerHTML =
-      '<div class="empty">No absent students today.</div>';
-  }else{
-    absentWrap.innerHTML = absentStudents.map(s => `
-      <div class="shortage-card" data-roll="${s.rollNo}">
-        <div>
-          <div class="name">${s.name}</div>
-          <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);">
-            Roll No: ${s.rollNo}
-          </div>
-        </div>
-        <div class="pct" style="color:var(--absent);">Absent</div>
-      </div>
-    `).join('');
+  let presentTodayCount = 0;
+  let absentTodayCount = 0;
 
-    absentWrap.querySelectorAll('.shortage-card').forEach(card => {
-      card.addEventListener('click', () =>
-        openStudentProfile(card.dataset.roll)
-      );
-    });
-       }
-  const perStudent = students.map(s => ({ ...s, stats: computeStudentStats(s.rollNo) }));
-  const withPct = perStudent.filter(s => s.stats.pct !== null);
-  const overallPct = withPct.length ? Math.round(withPct.reduce((a,s)=>a+s.stats.pct,0)/withPct.length) : null;
-  document.getElementById('dashOverallPct').textContent = overallPct===null ? '—' : overallPct + '%';
+  if (dateRecords.length === 0) {
+    if (absentCountEl) absentCountEl.textContent = '0 students';
+    if (absentWrap) {
+      absentWrap.innerHTML = '<div class="empty">No attendance marked for today.</div>';
+    }
+  } else {
+    const absentRecords = dateRecords.filter(r => r.status === 'A');
+    const presentRecords = dateRecords.filter(r => r.status === 'P');
+    presentTodayCount = presentRecords.length;
+    absentTodayCount = absentRecords.length;
 
-  // Doughnut chart: today's present vs absent
- const canvas = document.getElementById('attendanceChart');
+    if (absentCountEl) {
+      absentCountEl.textContent = `${absentRecords.length} student${absentRecords.length === 1 ? '' : 's'}`;
+    }
 
-if (canvas && typeof Chart !== 'undefined') {
-    const ctx = canvas.getContext('2d');
-  const chartData = {
-    labels: ['Present', 'Absent'],
-    datasets: [{ data: [presentToday, absentToday], backgroundColor: ['#3F7050', '#A63D40'], borderWidth: 0 }]
-  };
-  if(attendanceChartInstance){
-    attendanceChartInstance.data = chartData;
-    attendanceChartInstance.update();
-  }else{
-    attendanceChartInstance = new Chart(ctx, {
-      type: 'doughnut',
-      data: chartData,
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { position: 'bottom', labels: { font: { family: "'IBM Plex Mono', monospace", size: 11 } } } }
+    if (absentRecords.length === 0) {
+      if (absentWrap) {
+        absentWrap.innerHTML = '<div class="empty" style="color:var(--present);border-color:var(--present-bg);background:var(--present-bg);">All students are present today.</div>';
       }
-    });
+    } else {
+      if (absentWrap) {
+        const rowsHtml = absentRecords.map((r, idx) => {
+          const student = students.find(s => s.rollNo === r.studentId) || { name: r.studentId, rollNo: r.studentId };
+          return `
+            <div class="shortage-card" data-roll="${student.rollNo}">
+              <div>
+                <div class="name">${idx + 1}. ${student.name}</div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);">
+                  Register No: ${student.rollNo} &middot; Date: ${r.date}
+                </div>
+              </div>
+              <div class="pct" style="color:var(--absent);"><span class="stamp low">Absent</span></div>
+            </div>
+          `;
+        }).join('');
+
+        absentWrap.innerHTML = rowsHtml;
+        absentWrap.querySelectorAll('.shortage-card').forEach(card => {
+          card.addEventListener('click', () => openStudentProfile(card.dataset.roll));
+        });
+      }
+    }
   }
 
-  // Per-student attendance % table
+  document.getElementById('dashPresentToday').textContent = presentTodayCount;
+  document.getElementById('dashAbsentToday').textContent = absentTodayCount;
+
+  // ------------------------------------------------------------
+  // SECTION 3: OVERALL ATTENDANCE PERCENTAGE - PIE CHART
+  // ------------------------------------------------------------
+  const totalAllRecords = allAttendance.length;
+  const totalPresentRecords = allAttendance.filter(a => a.status === 'P').length;
+  const totalAbsentRecords = allAttendance.filter(a => a.status === 'A').length;
+
+  let overallPresentPct = 0;
+  let overallAbsentPct = 0;
+
+  if (totalAllRecords > 0) {
+    overallPresentPct = Math.round((totalPresentRecords / totalAllRecords) * 100);
+    overallAbsentPct = 100 - overallPresentPct;
+  }
+
+  const dashOverallEl = document.getElementById('dashOverallPct');
+  if (dashOverallEl) {
+    dashOverallEl.textContent = totalAllRecords > 0 ? `${overallPresentPct}%` : '—';
+  }
+
+  const legendSummary = document.getElementById('chartLegendSummary');
+  const canvas = document.getElementById('attendanceChart');
+
+  if (typeof Chart === 'undefined') {
+    console.error('Chart.js is not loaded');
+    if (legendSummary) {
+      legendSummary.innerHTML = `<span style="color:var(--absent);">Chart.js is not loaded.</span> Overall Present: ${overallPresentPct}%, Absent: ${overallAbsentPct}%`;
+    }
+  } else if (canvas) {
+    if (totalAllRecords === 0) {
+      if (legendSummary) {
+        legendSummary.innerHTML = '<span style="color:var(--muted);">Attendance data not available.</span>';
+      }
+      if (attendanceChartInstance) {
+        attendanceChartInstance.destroy();
+        attendanceChartInstance = null;
+      }
+    } else {
+      if (legendSummary) {
+        legendSummary.innerHTML = `
+          <span style="color:var(--present);font-weight:600;margin-right:16px;">● Present: ${overallPresentPct}% (${totalPresentRecords})</span>
+          <span style="color:var(--absent);font-weight:600;">● Absent: ${overallAbsentPct}% (${totalAbsentRecords})</span>
+        `;
+      }
+
+      if (attendanceChartInstance) {
+        attendanceChartInstance.destroy();
+        attendanceChartInstance = null;
+      }
+
+      try {
+        const ctx = canvas.getContext('2d');
+        attendanceChartInstance = new Chart(ctx, {
+          type: 'pie',
+          data: {
+            labels: ['Present (' + overallPresentPct + '%)', 'Absent (' + overallAbsentPct + '%)'],
+            datasets: [{
+              data: [totalPresentRecords, totalAbsentRecords],
+              backgroundColor: ['#3F7050', '#A63D40'],
+              borderWidth: 1,
+              borderColor: '#ffffff'
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: 'bottom',
+                labels: {
+                  font: { family: "'IBM Plex Mono', monospace", size: 11 }
+                }
+              },
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    const val = context.raw || 0;
+                    const pct = totalAllRecords > 0 ? Math.round((val / totalAllRecords) * 100) : 0;
+                    return ` ${context.label}: ${val} records (${pct}%)`;
+                  }
+                }
+              }
+            }
+          }
+        });
+      } catch(chartErr) {
+        console.error('Chart creation error', chartErr);
+      }
+    }
+  }
+
+  // ------------------------------------------------------------
+  // SECTION 1: STUDENT-WISE ATTENDANCE PERCENTAGE
+  // ------------------------------------------------------------
+  const perStudent = students.map(s => {
+    const stats = computeStudentStats(s.rollNo);
+    return { ...s, stats };
+  });
+
+  perStudent.sort((a, b) => a.rollNo.localeCompare(b.rollNo));
+
   const tableWrap = document.getElementById('dashStudentTableWrap');
-  if(students.length===0){
-    tableWrap.innerHTML = '<div class="empty">No students yet.</div>';
-  }else{
-    const rows = perStudent.map(s=>{
-      const pct = s.stats.pct===null ? '—' : s.stats.pct + '%';
-      const pctVal = s.stats.pct===null ? 0 : s.stats.pct;
-      const low = s.stats.pct!==null && s.stats.pct<75;
-      return `<tr class="dash-student-row" data-roll="${s.rollNo}">
-        <td>${s.name}</td>
-        <td><span class="pct-bar"><span class="pct-fill ${low?'low':''}" style="width:${pctVal}%"></span></span>
-        <span class="stamp ${low?'low':'ok'}">${pct}</span></td>
-      </tr>`;
-    }).join('');
-    tableWrap.innerHTML = `<table><thead><tr><th>Name</th><th style="width:160px;">Attendance %</th></tr></thead><tbody>${rows}</tbody></table>`;
-    tableWrap.querySelectorAll('.dash-student-row').forEach(tr=>{
-      tr.addEventListener('click', ()=>openStudentProfile(tr.dataset.roll));
-    });
+  if (tableWrap) {
+    if (students.length === 0) {
+      tableWrap.innerHTML = '<div class="empty">No student records available.</div>';
+    } else {
+      const rows = perStudent.map(s => {
+        const hasRecords = s.stats.held > 0;
+        const pctStr = hasRecords ? `${s.stats.pct}%` : '—';
+        const pctVal = hasRecords ? s.stats.pct : 0;
+        const isShortage = s.stats.pct !== null && s.stats.pct < 75;
+        const statusStamp = !hasRecords 
+          ? '<span class="stamp" style="color:var(--muted);border-color:var(--paper-line);">No Data</span>'
+          : (isShortage ? '<span class="stamp low">Shortage</span>' : '<span class="stamp ok">Safe</span>');
+
+        return `
+          <tr class="dash-student-row" data-roll="${s.rollNo}">
+            <td><b>${s.name}</b></td>
+            <td class="roll">${s.rollNo}</td>
+            <td>${s.stats.present}</td>
+            <td>${s.stats.absent}</td>
+            <td>${s.stats.held}</td>
+            <td>
+              <span class="pct-bar"><span class="pct-fill ${isShortage ? 'low' : ''}" style="width:${pctVal}%"></span></span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-weight:600;">${pctStr}</span>
+            </td>
+            <td>${statusStamp}</td>
+          </tr>
+        `;
+      }).join('');
+
+      tableWrap.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Student Name</th>
+              <th>Register No</th>
+              <th style="width:65px;">Present</th>
+              <th style="width:60px;">Absent</th>
+              <th style="width:55px;">Total</th>
+              <th style="width:140px;">Attendance %</th>
+              <th style="width:90px;">Status</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+
+      tableWrap.querySelectorAll('.dash-student-row').forEach(tr => {
+        tr.addEventListener('click', () => openStudentProfile(tr.dataset.roll));
+      });
+    }
   }
 
-  // Shortage section
-  const shortageStudents = perStudent.filter(s=>s.stats.pct!==null && s.stats.pct<75);
-  document.getElementById('shortageCount').textContent = `${shortageStudents.length} student${shortageStudents.length===1?'':'s'}`;
+  // ------------------------------------------------------------
+  // SECTION 4: ATTENDANCE SHORTAGE LIST (BELOW 75%)
+  // ------------------------------------------------------------
+  const shortageStudents = perStudent.filter(s => s.stats.pct !== null && s.stats.pct < 75);
+  shortageStudents.sort((a, b) => a.stats.pct - b.stats.pct);
+
+  const shortageCountEl = document.getElementById('shortageCount');
+  if (shortageCountEl) {
+    shortageCountEl.textContent = `${shortageStudents.length} student${shortageStudents.length === 1 ? '' : 's'}`;
+  }
+
   const shortageWrap = document.getElementById('shortageListWrap');
-  if(shortageStudents.length===0){
-    shortageWrap.innerHTML = '<div class="empty">No students currently below 75% attendance.</div>';
-  }else{
-    shortageWrap.innerHTML = shortageStudents.map(s=>`
-      <div class="shortage-card" data-roll="${s.rollNo}">
-        <div><div class="name">${s.name}</div><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);">Attendance is below the required 75%.</div></div>
-        <div class="pct">${s.stats.pct}%</div>
-      </div>`).join('');
-    shortageWrap.querySelectorAll('.shortage-card').forEach(card=>{
-      card.addEventListener('click', ()=>openStudentProfile(card.dataset.roll));
-    });
+  if (shortageWrap) {
+    if (shortageStudents.length === 0) {
+      shortageWrap.innerHTML = '<div class="empty" style="color:var(--present);border-color:var(--present-bg);background:var(--present-bg);">No students have attendance shortage.</div>';
+    } else {
+      const shortageRows = shortageStudents.map(s => `
+        <tr class="dash-student-row" data-roll="${s.rollNo}">
+          <td><b>${s.name}</b></td>
+          <td class="roll">${s.rollNo}</td>
+          <td>${s.stats.present}</td>
+          <td>${s.stats.absent}</td>
+          <td><b style="color:var(--absent);font-family:'IBM Plex Mono',monospace;">${s.stats.pct}%</b></td>
+          <td><span class="stamp low">Shortage</span></td>
+        </tr>
+      `).join('');
+
+      shortageWrap.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Student Name</th>
+              <th>Register No</th>
+              <th>Present</th>
+              <th>Absent</th>
+              <th>Attendance %</th>
+              <th>Shortage Status</th>
+            </tr>
+          </thead>
+          <tbody>${shortageRows}</tbody>
+        </table>
+      `;
+
+      shortageWrap.querySelectorAll('.dash-student-row').forEach(tr => {
+        tr.addEventListener('click', () => openStudentProfile(tr.dataset.roll));
+      });
+    }
   }
 }
 
@@ -476,7 +626,10 @@ function renderRegister(){
   });
 }
 
-document.getElementById('dateInput').addEventListener('change', renderRegister);
+document.getElementById('dateInput').addEventListener('change', ()=>{
+  renderRegister();
+  refreshDashboard();
+});
 document.getElementById('subjectInput').addEventListener('change', renderRegister);
 
 document.getElementById('markAllPresent').addEventListener('click', ()=>{
@@ -497,11 +650,9 @@ document.getElementById('saveAttendance').addEventListener('click', async ()=>{
   const { date, subject } = activeKeyParts();
   try{
     await saveAttendanceBatch(date, subject, dirtyBucket);
-   allAttendance = await loadAllAttendance();
-
-renderDashboard();
-
-btn.textContent = 'Saved to cloud ✓';
+    allAttendance = await loadAllAttendance();
+    await refreshDashboard();
+    btn.textContent = 'Saved to cloud ✓';
     setSyncBadge('ok','Cloud sync ready');
   }catch(e){
     console.error('Save attendance failed', e);
